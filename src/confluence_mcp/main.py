@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import os
 import sys
@@ -12,6 +12,31 @@ from .mcp_server import McpServer
 from .policy import PolicyEngine
 from .tools import ToolRegistry
 
+READ_TOOLS = {
+    "confluence_search_cql",
+    "confluence_get_content",
+    "confluence_get_labels",
+    "confluence_get_children",
+    "confluence_get_attachments",
+    "confluence_get_comments",
+    "confluence_scan_content",
+}
+WRITE_TOOLS = {
+    "confluence_create_page",
+    "confluence_update_page",
+    "confluence_add_label",
+    "confluence_add_comment",
+}
+SPACE_TOOLS = {"confluence_list_spaces"}
+LIKES_TOOL = {"confluence_get_likes"}
+
+
+def _parse_bool_env(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
 
 def load_dotenv(path: str = ".env") -> None:
     env_path = Path(path)
@@ -22,7 +47,7 @@ def load_dotenv(path: str = ".env") -> None:
         if not striped or striped.startswith("#") or "=" not in striped:
             continue
         key, value = striped.split("=", 1)
-        key = key.strip()
+        key = key.strip().lstrip("\ufeff")
         value = value.strip().strip('"').strip("'")
         os.environ.setdefault(key, value)
 
@@ -57,6 +82,77 @@ def bootstrap_allowed_spaces(settings: Settings, client: ConfluenceClient, audit
     return replace(settings, allowed_spaces=set(sorted_spaces))
 
 
+def _probe_ok(err: ConfluenceError) -> bool:
+    # 404 means endpoint is reachable but the resource may not exist.
+    if err.status_code == 404:
+        return True
+    return False
+
+
+def bootstrap_enabled_tools(settings: Settings, client: ConfluenceClient, audit: AuditLogger) -> set[str]:
+    enabled = set(READ_TOOLS | WRITE_TOOLS | SPACE_TOOLS)
+    if settings.experimental_likes:
+        enabled |= LIKES_TOOL
+
+    if not _parse_bool_env("TOOL_PROBE_ON_STARTUP", True):
+        if not settings.experimental_likes:
+            enabled -= LIKES_TOOL
+        if not settings.write_enabled:
+            enabled -= WRITE_TOOLS
+        return enabled
+
+    space_ok = False
+    read_ok = False
+    likes_ok = False
+
+    try:
+        client.list_spaces(limit=1, start=0)
+        space_ok = True
+    except ConfluenceError as exc:
+        space_ok = _probe_ok(exc)
+
+    try:
+        client.search_cql(cql="type=page order by id asc", limit=1)
+        read_ok = True
+    except ConfluenceError as exc:
+        read_ok = _probe_ok(exc)
+
+    if settings.experimental_likes:
+        try:
+            client.get_likes(content_id="0")
+            likes_ok = True
+        except ConfluenceError as exc:
+            likes_ok = _probe_ok(exc)
+
+    if not space_ok:
+        enabled -= SPACE_TOOLS
+    if not read_ok:
+        enabled -= READ_TOOLS
+        enabled -= WRITE_TOOLS
+    if not likes_ok:
+        enabled -= LIKES_TOOL
+    if not settings.write_enabled:
+        enabled -= WRITE_TOOLS
+
+    audit.log(
+        {
+            "tool": "bootstrap_tool_probe",
+            "status": "ok",
+            "spaceApi": space_ok,
+            "readApi": read_ok,
+            "likesApi": likes_ok if settings.experimental_likes else None,
+            "enabledTools": sorted(enabled),
+        }
+    )
+
+    print(
+        f"[confluence-mcp] tool probe space={space_ok} read={read_ok} "
+        f"likes={likes_ok if settings.experimental_likes else 'off'}; enabled={len(enabled)}",
+        file=sys.stderr,
+    )
+    return enabled
+
+
 def main() -> None:
     load_dotenv()
     settings = Settings.from_env()
@@ -64,7 +160,14 @@ def main() -> None:
     client = ConfluenceClient(settings)
     settings = bootstrap_allowed_spaces(settings, client, audit)
     policy = PolicyEngine(settings)
-    registry = ToolRegistry(settings=settings, client=client, policy=policy, audit=audit)
+    enabled_tools = bootstrap_enabled_tools(settings, client, audit)
+    registry = ToolRegistry(
+        settings=settings,
+        client=client,
+        policy=policy,
+        audit=audit,
+        enabled_tools=enabled_tools,
+    )
     server = McpServer(registry)
     server.run()
 

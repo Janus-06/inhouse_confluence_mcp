@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
@@ -27,6 +27,7 @@ class ToolRegistry:
     client: ConfluenceClient
     policy: PolicyEngine
     audit: AuditLogger
+    enabled_tools: set[str] | None = None
 
     def build_tools(self) -> dict[str, ToolDefinition]:
         tools = {
@@ -197,6 +198,8 @@ class ToolRegistry:
                 handler=self._get_likes,
             )
 
+        if self.enabled_tools is not None:
+            tools = {k: v for k, v in tools.items() if k in self.enabled_tools}
         return tools
 
     def list_tools(self) -> list[dict[str, Any]]:
@@ -449,5 +452,8 @@ class ToolRegistry:
         if links.get("webui"):
             return f"{base}{links['webui']}"
         return None
+
+
+
 
 

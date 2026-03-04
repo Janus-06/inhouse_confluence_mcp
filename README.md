@@ -1,4 +1,4 @@
-# inhouse_confluence_mcp
+﻿# inhouse_confluence_mcp
 
 In-house Confluence (Data Center/Server) MCP server implementation.
 Default mode is read-only, and write tools are controlled by policy.
@@ -58,3 +58,9 @@ confluence-mcp-sync-spaces
 ```powershell
 python -m unittest discover -s tests -v
 ```
+
+## Tool Probe on Startup
+- By default, the server probes API permissions at startup and exposes only reachable tools.
+- Toggle with `TOOL_PROBE_ON_STARTUP=true|false`.
+- If `/rest/api/space` is blocked, `confluence_list_spaces` is hidden.
+- If `/rest/api/content/search` is blocked, read/write content tools are hidden.
