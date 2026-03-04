@@ -167,6 +167,38 @@ class ConfluenceClient:
             query={"limit": limit, "cursor": cursor, "spaceKey": space_key},
         )
 
+    def list_spaces(
+        self,
+        *,
+        limit: int,
+        start: int | None = None,
+        type_filter: str = "global",
+    ) -> dict[str, Any]:
+        return self._request(
+            "GET",
+            "/rest/api/space",
+            query={"type": type_filter, "limit": limit, "start": start},
+        )
+
+    def list_all_space_keys(self) -> list[str]:
+        keys: list[str] = []
+        start = 0
+        limit = max(1, self.settings.discover_spaces_limit)
+        while True:
+            page = self.list_spaces(limit=limit, start=start)
+            results = page.get("results", [])
+            for item in results:
+                key = item.get("key")
+                if isinstance(key, str) and key.strip():
+                    keys.append(key.strip())
+            size = int(page.get("size") or len(results) or 0)
+            if size <= 0:
+                break
+            start += size
+            if size < limit:
+                break
+        # preserve order while removing duplicates
+        return list(dict.fromkeys(keys))
     def get_likes(self, *, content_id: str) -> dict[str, Any]:
         return self._request("GET", f"/rest/likes/1.0/content/{content_id}/likes")
 
@@ -239,3 +271,4 @@ class ConfluenceClient:
         if parent_comment_id:
             payload["ancestors"] = [{"id": str(parent_comment_id)}]
         return self._request("POST", "/rest/api/content", payload=payload)
+

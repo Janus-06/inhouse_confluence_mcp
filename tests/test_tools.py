@@ -30,6 +30,8 @@ class ToolRegistryTests(unittest.TestCase):
             max_body_chars=1000,
             request_timeout_ms=10000,
             max_retries=1,
+            auto_discover_spaces=True,
+            discover_spaces_limit=200,
             allowed_spaces={"DEVOPS"},
             denied_spaces={"HR"},
             allowed_expands={"body.storage", "version"},
@@ -48,6 +50,7 @@ class ToolRegistryTests(unittest.TestCase):
             audit=AuditLogger(settings.audit_log_path),
         )
         names = [t["name"] for t in registry.list_tools()]
+        self.assertIn("confluence_list_spaces", names)
         self.assertIn("confluence_search_cql", names)
         self.assertIn("confluence_get_content", names)
         self.assertNotIn("confluence_get_likes", names)

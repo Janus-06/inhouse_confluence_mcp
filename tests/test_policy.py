@@ -24,6 +24,8 @@ class PolicyTests(unittest.TestCase):
             max_body_chars=1000,
             request_timeout_ms=10000,
             max_retries=1,
+            auto_discover_spaces=True,
+            discover_spaces_limit=200,
             allowed_spaces={"DEVOPS"},
             denied_spaces={"HR"},
             allowed_expands={"body.storage", "version"},

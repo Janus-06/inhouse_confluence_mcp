@@ -40,6 +40,8 @@ class Settings:
     max_body_chars: int
     request_timeout_ms: int
     max_retries: int
+    auto_discover_spaces: bool
+    discover_spaces_limit: int
 
     allowed_spaces: set[str]
     denied_spaces: set[str]
@@ -73,6 +75,8 @@ class Settings:
             max_body_chars=_parse_int(os.getenv("MAX_BODY_CHARS"), 20000),
             request_timeout_ms=_parse_int(os.getenv("REQUEST_TIMEOUT_MS"), 10000),
             max_retries=_parse_int(os.getenv("MAX_RETRIES"), 2),
+            auto_discover_spaces=_parse_bool(os.getenv("AUTO_DISCOVER_SPACES"), True),
+            discover_spaces_limit=_parse_int(os.getenv("DISCOVER_SPACES_LIMIT"), 200),
             allowed_spaces=set(_parse_csv(os.getenv("ALLOWED_SPACES"))),
             denied_spaces=set(_parse_csv(os.getenv("DENIED_SPACES"))),
             allowed_expands=set(_parse_csv(os.getenv("ALLOWED_EXPANDS"))),

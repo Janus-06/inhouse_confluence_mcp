@@ -4,6 +4,7 @@ In-house Confluence (Data Center/Server) MCP server implementation.
 Default mode is read-only, and write tools are controlled by policy.
 
 ## Tools
+- `confluence_list_spaces`
 - `confluence_search_cql`
 - `confluence_get_content`
 - `confluence_get_labels`
@@ -35,10 +36,18 @@ Or:
 python -m confluence_mcp.main
 ```
 
+## Space Auto-Discovery
+- If `ALLOWED_SPACES` is empty and `AUTO_DISCOVER_SPACES=true`, the server auto-loads all available space keys on startup.
+- Spaces in `DENIED_SPACES` are always excluded.
+- To generate a ready-to-copy env line manually:
+```powershell
+confluence-mcp-sync-spaces
+```
+- Output file: `logs/spaces_discovered.json`
+
 ## Recommended Settings
 - Keep `WRITE_ENABLED=false` initially
-- Configure `ALLOWED_SPACES`
-- Add sensitive spaces to `DENIED_SPACES`
+- Configure `DENIED_SPACES` for sensitive spaces
 - Keep `EXPERIMENTAL_LIKES=false` unless needed
 
 ## Logs

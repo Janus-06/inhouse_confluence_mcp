@@ -30,6 +30,18 @@ class ToolRegistry:
 
     def build_tools(self) -> dict[str, ToolDefinition]:
         tools = {
+            "confluence_list_spaces": ToolDefinition(
+                name="confluence_list_spaces",
+                description="List Confluence space keys for policy setup and discovery.",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "limit": {"type": "integer"},
+                        "start": {"type": "integer"},
+                    },
+                },
+                handler=self._list_spaces,
+            ),
             "confluence_search_cql": ToolDefinition(
                 name="confluence_search_cql",
                 description="Search Confluence content using CQL.",
@@ -250,6 +262,29 @@ class ToolRegistry:
             **data,
         }
 
+    def _list_spaces(self, args: dict[str, Any]) -> dict[str, Any]:
+        limit = self.policy.enforce_limit(args.get("limit"))
+        response = self.client.list_spaces(limit=limit, start=args.get("start"))
+        items = [
+            {
+                "id": x.get("id"),
+                "key": x.get("key"),
+                "name": x.get("name"),
+                "type": x.get("type"),
+                "status": x.get("status"),
+                "webUrl": self._web_url(x.get("_links") or {}),
+            }
+            for x in response.get("results", [])
+        ]
+        return {
+            "items": items,
+            "pageInfo": {
+                "start": response.get("start"),
+                "limit": response.get("limit"),
+                "size": response.get("size"),
+                "next": ((response.get("_links") or {}).get("next")),
+            },
+        }
     def _search_cql(self, args: dict[str, Any]) -> dict[str, Any]:
         cql = str(args["cql"])
         limit = self.policy.enforce_limit(args.get("limit"))
@@ -414,3 +449,5 @@ class ToolRegistry:
         if links.get("webui"):
             return f"{base}{links['webui']}"
         return None
+
+

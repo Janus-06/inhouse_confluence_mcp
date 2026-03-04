@@ -14,6 +14,7 @@ dependencies = []
 
 [project.scripts]
 confluence-mcp = "confluence_mcp.main:main"
+confluence-mcp-sync-spaces = "confluence_mcp.sync_spaces:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
