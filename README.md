@@ -1,4 +1,4 @@
-﻿# inhouse_confluence_mcp
+# inhouse_confluence_mcp
 
 In-house Confluence (Data Center/Server) MCP server implementation.
 Default mode is read-only, and write tools are controlled by policy.

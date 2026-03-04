@@ -1,4 +1,4 @@
-﻿# Confluence MCP 설계서 (In-house Confluence)
+# Confluence MCP 설계서 (In-house Confluence)
 
 ## 1. 목적과 범위
 - 목적: 인하우스 Confluence(Data Center/Server) 지식을 LLM이 안전하고 일관되게 활용하도록 MCP 서버를 구축한다.
