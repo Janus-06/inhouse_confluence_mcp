@@ -37,8 +37,8 @@ python -m confluence_mcp.main
 ```
 
 ## Space Auto-Discovery
-- If `ALLOWED_SPACES` is empty and `AUTO_DISCOVER_SPACES=true`, the server auto-loads all available space keys on startup.
-- Spaces in `DENIED_SPACES` are always excluded.
+- If `ALLOWED_SPACES` is empty and `AUTO_DISCOVER_SPACES=true`, the server auto-loads available space keys on startup.
+- `DENIED_SPACES` is optional. Use it only when you need an explicit sensitive-space blocklist.
 - To generate a ready-to-copy env line manually:
 ```powershell
 confluence-mcp-sync-spaces
@@ -47,7 +47,8 @@ confluence-mcp-sync-spaces
 
 ## Recommended Settings
 - Keep `WRITE_ENABLED=false` initially
-- Configure `DENIED_SPACES` for sensitive spaces
+- Configure `ALLOWED_SPACES` first
+- Add `DENIED_SPACES` only for sensitive spaces
 - Keep `EXPERIMENTAL_LIKES=false` unless needed
 
 ## Logs
@@ -61,6 +62,8 @@ python -m unittest discover -s tests -v
 
 ## Tool Probe on Startup
 - By default, the server probes API permissions at startup and exposes only reachable tools.
-- Toggle with `TOOL_PROBE_ON_STARTUP=true|false`.
+- Toggle all probes with `TOOL_PROBE_ON_STARTUP=true|false`.
+- Disable only space probe with `SPACE_PROBE_ON_STARTUP=false`.
+- When `SPACE_PROBE_ON_STARTUP=false`, user-declared `ALLOWED_SPACES` is trusted for policy checks.
 - If `/rest/api/space` is blocked, `confluence_list_spaces` is hidden.
 - If `/rest/api/content/search` is blocked, read/write content tools are hidden.

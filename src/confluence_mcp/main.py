@@ -101,15 +101,24 @@ def bootstrap_enabled_tools(settings: Settings, client: ConfluenceClient, audit:
             enabled -= WRITE_TOOLS
         return enabled
 
-    space_ok = False
+    probe_space_api = _parse_bool_env("SPACE_PROBE_ON_STARTUP", True)
+
+    # space_api_ok: /rest/api/space availability (controls list_spaces tool)
+    # declared_space_ok: whether user-declared ALLOWED_SPACES should be trusted
+    space_api_ok = False
+    declared_space_ok = bool(settings.allowed_spaces)
     read_ok = False
     likes_ok = False
 
-    try:
-        client.list_spaces(limit=1, start=0)
-        space_ok = True
-    except ConfluenceError as exc:
-        space_ok = _probe_ok(exc)
+    if probe_space_api:
+        try:
+            client.list_spaces(limit=1, start=0)
+            space_api_ok = True
+        except ConfluenceError as exc:
+            space_api_ok = _probe_ok(exc)
+    else:
+        # When disabled, trust ALLOWED_SPACES for policy but keep list_spaces hidden.
+        declared_space_ok = bool(settings.allowed_spaces)
 
     try:
         client.search_cql(cql="type=page order by id asc", limit=1)
@@ -124,11 +133,15 @@ def bootstrap_enabled_tools(settings: Settings, client: ConfluenceClient, audit:
         except ConfluenceError as exc:
             likes_ok = _probe_ok(exc)
 
-    if not space_ok:
+    # list_spaces depends on /rest/api/space
+    if not space_api_ok:
         enabled -= SPACE_TOOLS
+
+    # Content read/write tools depend on /rest/api/content
     if not read_ok:
         enabled -= READ_TOOLS
         enabled -= WRITE_TOOLS
+
     if not likes_ok:
         enabled -= LIKES_TOOL
     if not settings.write_enabled:
@@ -138,7 +151,9 @@ def bootstrap_enabled_tools(settings: Settings, client: ConfluenceClient, audit:
         {
             "tool": "bootstrap_tool_probe",
             "status": "ok",
-            "spaceApi": space_ok,
+            "spaceApi": space_api_ok,
+            "spaceProbeEnabled": probe_space_api,
+            "declaredSpaceTrusted": declared_space_ok,
             "readApi": read_ok,
             "likesApi": likes_ok if settings.experimental_likes else None,
             "enabledTools": sorted(enabled),
@@ -146,8 +161,10 @@ def bootstrap_enabled_tools(settings: Settings, client: ConfluenceClient, audit:
     )
 
     print(
-        f"[confluence-mcp] tool probe space={space_ok} read={read_ok} "
-        f"likes={likes_ok if settings.experimental_likes else 'off'}; enabled={len(enabled)}",
+        f"[confluence-mcp] tool probe spaceApi={space_api_ok} read={read_ok} "
+        f"likes={likes_ok if settings.experimental_likes else 'off'} "
+        f"spaceProbeEnabled={probe_space_api} declaredSpaceTrusted={declared_space_ok}; "
+        f"enabled={len(enabled)}",
         file=sys.stderr,
     )
     return enabled
