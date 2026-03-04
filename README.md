@@ -1,0 +1,2 @@
+# inhouse_confluence_mcp
+inhouse_confluence_mcp
