@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
@@ -202,6 +202,9 @@ class ToolRegistry:
             tools = {k: v for k, v in tools.items() if k in self.enabled_tools}
         return tools
 
+
+    def has_tool(self, name: str) -> bool:
+        return name in self.build_tools()
     def list_tools(self) -> list[dict[str, Any]]:
         return [
             {
@@ -216,7 +219,7 @@ class ToolRegistry:
         args = arguments or {}
         tools = self.build_tools()
         if name not in tools:
-            raise PolicyError(f"unknown tool: {name}")
+            raise KeyError(f"unknown tool: {name}")
 
         trace_id = f"cfx-{uuid.uuid4().hex[:12]}"
         started = datetime.now(timezone.utc)
@@ -233,7 +236,7 @@ class ToolRegistry:
                 }
             )
             return envelope
-        except (PolicyError, ConfluenceError, ValueError, KeyError) as exc:
+        except (PolicyError, ConfluenceError) as exc:
             duration_ms = int((datetime.now(timezone.utc) - started).total_seconds() * 1000)
             retryable = bool(getattr(exc, "retryable", False))
             code = getattr(exc, "status_code", None)
@@ -452,6 +455,9 @@ class ToolRegistry:
         if links.get("webui"):
             return f"{base}{links['webui']}"
         return None
+
+
+
 
 
 
