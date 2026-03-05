@@ -1,4 +1,4 @@
-﻿# inhouse_confluence_mcp
+# inhouse_confluence_mcp
 
 In-house Confluence (Data Center/Server) MCP server implementation.
 Default mode is read-only, and write tools are controlled by policy.
@@ -35,6 +35,45 @@ Or:
 ```powershell
 python -m confluence_mcp.main
 ```
+
+## OpenCode Registration
+Use OpenCode local MCP config with a `command` array and `environment` object.
+
+```jsonc
+{
+  "mcp": {
+    "inhouse-confluence": {
+      "type": "local",
+      "command": [
+        "C:\\Users\\jae_chul.lee\\inhouse_confluence_mcp\\.venv\\Scripts\\python.exe",
+        "-m",
+        "confluence_mcp.main",
+        "--env-file",
+        "C:\\Users\\jae_chul.lee\\inhouse_confluence_mcp\\.env"
+      ],
+      "environment": {
+        "PYTHONIOENCODING": "utf-8"
+      }
+    }
+  }
+}
+```
+
+Notes:
+- Do not rely on `Activate.ps1` in MCP commands.
+- Prefer direct venv python path.
+- `--env-file` makes startup independent from `cwd`.
+- Optional override: set `CONFLUENCE_MCP_ENV_FILE` in `environment`.
+
+## .env Loading Rules
+On startup, the server looks for `.env` in this order:
+1. `--env-file` path
+2. `CONFLUENCE_MCP_ENV_FILE`
+3. Current working directory (`.env`, `.env.local`)
+4. Python executable neighborhood (useful for `.venv` layout)
+5. Project/module directory
+
+If no file is found, startup logs searched paths.
 
 ## Space Auto-Discovery
 - If `ALLOWED_SPACES` is empty and `AUTO_DISCOVER_SPACES=true`, the server auto-loads available space keys on startup.

@@ -1,5 +1,6 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
+import argparse
 import os
 import sys
 from dataclasses import replace
@@ -38,18 +39,69 @@ def _parse_bool_env(name: str, default: bool) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
-def load_dotenv(path: str = ".env") -> None:
-    env_path = Path(path)
-    if not env_path.exists():
-        return
-    for line in env_path.read_text(encoding="utf-8").splitlines():
-        striped = line.strip()
-        if not striped or striped.startswith("#") or "=" not in striped:
+def _candidate_env_files(explicit_path: str | None = None) -> list[Path]:
+    candidates: list[Path] = []
+
+    if explicit_path:
+        candidates.append(Path(explicit_path).expanduser())
+
+    override = os.getenv("CONFLUENCE_MCP_ENV_FILE", "").strip()
+    if override:
+        candidates.append(Path(override).expanduser())
+
+    cwd = Path.cwd()
+    candidates.extend([cwd / ".env", cwd / ".env.local"])
+
+    exe = Path(sys.executable).resolve()
+    # Covers common layouts such as <project>/.venv/Scripts/python.exe
+    candidates.extend([
+        exe.parent / ".env",
+        exe.parent / ".env.local",
+        exe.parent.parent / ".env",
+        exe.parent.parent / ".env.local",
+        exe.parent.parent.parent / ".env",
+        exe.parent.parent.parent / ".env.local",
+    ])
+
+    module_project_root = Path(__file__).resolve().parents[2]
+    candidates.extend([module_project_root / ".env", module_project_root / ".env.local"])
+
+    unique: list[Path] = []
+    seen: set[str] = set()
+    for item in candidates:
+        normalized = str(item.resolve(strict=False))
+        if normalized in seen:
             continue
-        key, value = striped.split("=", 1)
-        key = key.strip().lstrip("\ufeff")
-        value = value.strip().strip('"').strip("'")
-        os.environ.setdefault(key, value)
+        seen.add(normalized)
+        unique.append(Path(normalized))
+    return unique
+
+
+def load_dotenv(path: str | None = None) -> tuple[Path | None, list[Path]]:
+    searched = _candidate_env_files(path)
+    for env_path in searched:
+        if not env_path.exists() or not env_path.is_file():
+            continue
+        for line in env_path.read_text(encoding="utf-8").splitlines():
+            striped = line.strip()
+            if not striped or striped.startswith("#") or "=" not in striped:
+                continue
+            key, value = striped.split("=", 1)
+            key = key.strip().lstrip("\ufeff")
+            value = value.strip().strip('"').strip("'")
+            os.environ.setdefault(key, value)
+        return env_path, searched
+    return None, searched
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="In-house Confluence MCP server")
+    parser.add_argument(
+        "--env-file",
+        default=None,
+        help="Explicit .env file path. If omitted, common locations are auto-searched.",
+    )
+    return parser.parse_args(argv)
 
 
 def bootstrap_allowed_spaces(settings: Settings, client: ConfluenceClient, audit: AuditLogger) -> Settings:
@@ -170,9 +222,26 @@ def bootstrap_enabled_tools(settings: Settings, client: ConfluenceClient, audit:
     return enabled
 
 
-def main() -> None:
-    load_dotenv()
-    settings = Settings.from_env()
+def main(argv: list[str] | None = None) -> None:
+    args = parse_args(argv)
+    env_path, searched = load_dotenv(args.env_file)
+    if env_path:
+        print(f"[confluence-mcp] loaded env file: {env_path}", file=sys.stderr)
+
+    try:
+        settings = Settings.from_env()
+    except ValueError as exc:
+        print(f"[confluence-mcp] configuration error: {exc}", file=sys.stderr)
+        if env_path is None:
+            print("[confluence-mcp] no .env file found. searched paths:", file=sys.stderr)
+            for item in searched:
+                print(f"  - {item}", file=sys.stderr)
+            print(
+                "[confluence-mcp] hint: pass --env-file <path> or set CONFLUENCE_MCP_ENV_FILE",
+                file=sys.stderr,
+            )
+        raise
+
     audit = AuditLogger(settings.audit_log_path)
     client = ConfluenceClient(settings)
     settings = bootstrap_allowed_spaces(settings, client, audit)
